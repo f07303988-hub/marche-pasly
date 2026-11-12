@@ -541,6 +541,7 @@ function renderParam(){
  <div class="row"><button class="btn-p" onclick="$('#fileX').click()">📥 Importer Excel</button><button onclick="exportXlsx()">📤 Exporter Excel</button></div>
  <div class="row" style="margin-top:8px"><button class="btn-p" onclick="shareBackup()">📤 Partager la sauvegarde</button><button onclick="backup()">💾 Télécharger (.json)</button><button onclick="$('#fileJ').click()">♻️ Restaurer une sauvegarde</button></div>
  <p class="muted">${S.lastBackup?"Dernière sauvegarde : "+new Date(S.lastBackup).toLocaleString("fr-FR"):"Aucune sauvegarde."}</p></div>
+ <div class="card"><h2>Réinitialiser la liste des commerçants</h2><p class="muted">Ne garde que les coordonnées choisies et efface tout le reste : statuts, pièces, paiements, emplacements, remarques, notes, mails envoyés.</p><button onclick="resetSheet()">Réinitialiser…</button></div>
  <div class="card"><h2>Nouvelle édition</h2><p class="muted">Garde la liste des exposants et le plan, remet à zéro statuts, pièces, paiements, emplacements, confirmations et présences. Faites une sauvegarde avant.</p><button onclick="newEdition()">Préparer une nouvelle édition</button></div>
  <div class="card"><h2>Tout effacer</h2><button class="btn-d" onclick="wipe()">Effacer toutes les données de cet appareil</button></div>`;
  document.querySelectorAll("[data-c]").forEach(i=>i.onchange=()=>{const k=i.dataset.c;S.cfg[k]=i.type==="number"?Number(i.value):i.value;save();render();toast("Enregistré")});
@@ -554,6 +555,25 @@ async function shareBackup(){
 }
 function backup(){S.lastBackup=new Date().toISOString();save();download(`marche-pasly-sauvegarde-${today()}.json`,new Blob([JSON.stringify(S,null,1)],{type:"application/json"}));render()}
 $("#fileJ").onchange=async ev=>{const f=ev.target.files[0];ev.target.value="";if(!f)return;try{const d=JSON.parse(await f.text());if(!d.expo||!d.stands)throw new Error("format inconnu");if(!confirm(`Restaurer cette sauvegarde (${d.expo.length} exposants) ? Les données actuelles seront remplacées.`))return;S=d;S.cfg={...DEF_CFG,...S.cfg};S.pois=S.pois||[];save();render();toast("Sauvegarde restaurée")}catch(e){alert("Fichier invalide : "+e.message)}};
+const KEEP=[["nom","Nom",1],["prenom","Prénom",1],["entreprise","Entreprise",1],["type","Type d'activité",1],["produits","Produits vendus",1],["tel","Téléphone",1],["email","E-mail",1],["adresse","Adresse",0],["siret","SIRET",0],["historique","Années de participation",0]];
+function resetSheet(){
+ const nRef=S.expo.filter(e=>!actif(e)).length;
+ const d=sheet(`<div class="sheet-h"><h2>Réinitialiser</h2><button onclick="closeSheet()">✕</button></div>
+ <div class="card"><h3 style="margin-top:0">Informations à conserver</h3>${KEEP.map(([k,l,on])=>`<label class="chk"><input type="checkbox" data-keep="${k}" ${on?"checked":""}> ${l}</label>`).join("")}</div>
+ <div class="card"><label class="chk"><input type="checkbox" id="rsRef"> Supprimer aussi les ${nRef} commerçant(s) refusé(s) ou désisté(s)</label>
+ <label class="chk"><input type="checkbox" id="rsNoMail"> Supprimer les commerçants sans e-mail ni téléphone</label></div>
+ <div class="warn">Faites d'abord une sauvegarde. Juste après, le bouton ↶ Annuler permet encore de revenir en arrière.</div>
+ <div class="row" style="justify-content:space-between"><button onclick="shareBackup()">📤 Sauvegarder d'abord</button><button class="btn-d" id="rsGo">Réinitialiser ${S.expo.length} commerçants</button></div>`);
+ d.querySelector("#rsGo").onclick=()=>{
+  const keep=[...d.querySelectorAll("[data-keep]")].filter(i=>i.checked).map(i=>i.dataset.keep);
+  if(!confirm("Réinitialiser la liste ? Seules les informations cochées seront conservées."))return;
+  let L=S.expo;
+  if($("#rsRef").checked)L=L.filter(actif);
+  if($("#rsNoMail").checked)L=L.filter(e=>(e.email||"").trim()||(e.tel||"").trim());
+  S.expo=L.map(e=>{const n=newExpo();n.id=e.id;keep.forEach(k=>{if(k==="historique")n.historique=e.historique||[];else n[k]=e[k]});if(!keep.includes("type"))n.type="Autre";return n});
+  S.cfg.lotsEnvoyes={};save();closeSheet();tab="list";render();toast(`${S.expo.length} commerçants conservés`);
+ };
+}
 function newEdition(){if(!confirm("Remettre à zéro le suivi pour une nouvelle édition ?"))return;
  S.expo.forEach(e=>{const s=standOf(e);if(e.statut==="Validé"){e.historique=(e.historique||[]).concat({date:S.cfg.date||"",titre:S.cfg.titre,empl:s?s.num:""})}e.emplAncien=s?String(s.num):e.emplAncien;Object.assign(e,{statut:"À traiter",bulletin:false,kbis:false,rc:false,paye:false,paiementMode:"",montant:null,stand:null,confirmation:false,present:false,mailRetenu:null,mailRefus:null,relanceLe:null})});S.cfg.lotsEnvoyes={};
  S.cfg.date="";save();render();toast("Nouvelle édition prête")}
