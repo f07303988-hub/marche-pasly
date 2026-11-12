@@ -90,9 +90,9 @@ label.f>input,label.f>select,label.f>textarea{margin-top:3px}
 <main id="main"></main>
 <nav id="nav">
  <button data-t="dash"><span>📊</span>Suivi</button>
- <button data-t="list"><span>🧾</span>Exposants</button>
+ <button data-t="list"><span>🧾</span>Commerçants</button>
  <button data-t="plan"><span>🗺️</span>Plan</button>
- <button data-t="lists"><span>📋</span>Listings</button>
+ <button data-t="lists"><span>📋</span>Exposants</button>
  <button data-t="jj"><span>✅</span>Jour J</button>
  <button data-t="param"><span>⚙️</span>Réglages</button>
 </nav>
@@ -241,8 +241,8 @@ function renderList(){
  $("#main").innerHTML=`<div class="row" style="margin-bottom:8px"><input id="q" placeholder="🔍 Rechercher (nom, produit, tél…)" value="${esc(listF.q)}" style="flex:1;min-width:180px"><button class="btn-p" onclick="editExpo()">+ Ajouter</button></div>
  <div class="two" style="margin-bottom:8px"><select id="fs"><option value="">Tous statuts</option>${STATUTS.map(s=>`<option ${listF.st===s?"selected":""}>${s}</option>`).join("")}</select>
  <select id="ff"><option value="">Aucun filtre</option>${[["appelno","Appel à candidatures non envoyé"],["incomplet","Validés – dossier incomplet"],["nonplace","Validés – non placés"],["impaye","Non payés"],["conf","Confirmation à envoyer"],["elec","Électricité"],["ft","Food trucks"]].map(([v,t])=>`<option value="${v}" ${listF.f===v?"selected":""}>${t}</option>`).join("")}</select></div>
- <div class="row muted" style="margin-bottom:8px;justify-content:space-between"><span>${L.length} exposant(s)</span><span class="row"><button onclick="window._sel=null;campaign('cand')">✉️ Mails candidatures</button><button onclick="copyMails()">📋 E-mails</button></span></div>
- <div id="lst">${L.map(itemHTML).join("")||'<p class="muted">Aucun exposant.</p>'}</div>`;
+ <div class="row muted" style="margin-bottom:8px;justify-content:space-between"><span>${L.length} commerçant(s)</span><span class="row"><button onclick="window._sel=null;campaign('cand')">✉️ Mails candidatures</button><button onclick="copyMails()">📋 E-mails</button></span></div>
+ <div id="lst">${L.map(itemHTML).join("")||'<p class="muted">Aucun commerçant.</p>'}</div>`;
  window._lastList=L;
  $("#q").oninput=e=>{listF.q=e.target.value;const p=e.target.selectionStart;renderList();const i=$("#q");i.focus();i.setSelectionRange(p,p)};
  $("#fs").onchange=e=>{listF.st=e.target.value;renderList()};
