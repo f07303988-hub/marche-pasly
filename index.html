@@ -197,7 +197,7 @@ function renderDash(){
  const relance=val.filter(e=>!complet(e));const bad=E.filter(e=>actif(e)&&e.siret&&!siretOk(e.siret));
  let bk="";
  const lb=S.lastBackup;
- if(E.length&&(!lb||(Date.now()-new Date(lb))/864e5>7))bk=`<div class="warn">💾 Les données sont uniquement dans ce navigateur. ${lb?"Dernière sauvegarde : "+new Date(lb).toLocaleDateString("fr-FR"):"Aucune sauvegarde faite"}. <button onclick="backup()">Sauvegarder maintenant</button></div>`;
+ if(E.length&&(!lb||(Date.now()-new Date(lb))/864e5>7))bk=`<div class="warn">💾 Les données sont uniquement dans ce navigateur. ${lb?"Dernière sauvegarde : "+new Date(lb).toLocaleDateString("fr-FR"):"Aucune sauvegarde faite"}. <button onclick="shareBackup()">📤 Partager la sauvegarde</button></div>`;
  const dn=dupNums();if(dn.length)bk+=`<div class="warn">⚠️ Numéros d'emplacement en double : ${dn.join(", ")}. Corrigez-les dans Plan → Modifier le plan.</div>`;
  const pc=(S.pois||[]).filter(p=>p.type==="coffret").length;
  $("#main").innerHTML=`${bk}
@@ -539,11 +539,18 @@ function renderParam(){
  <p class="muted">Champs : {quand} {echeance_candidature} {echeance_reglement} {tarif_std} {tarif_ft} {manquants} (liste des pièces manquantes) {prenom} {nom} {entreprise} {titre} {date} {date_txt} {horaires} {installation} {lieu} {emplacement} {zone} {longueur} {montant} {paiement}</p></div>
  <div class="card"><h2>Données</h2><p class="muted">Toutes les données restent dans ce navigateur, sur cet appareil. Rien n'est envoyé sur un serveur. Pensez à sauvegarder régulièrement : vider le cache du navigateur efface tout.</p>
  <div class="row"><button class="btn-p" onclick="$('#fileX').click()">📥 Importer Excel</button><button onclick="exportXlsx()">📤 Exporter Excel</button></div>
- <div class="row" style="margin-top:8px"><button onclick="backup()">💾 Sauvegarde complète (.json)</button><button onclick="$('#fileJ').click()">♻️ Restaurer une sauvegarde</button></div>
+ <div class="row" style="margin-top:8px"><button class="btn-p" onclick="shareBackup()">📤 Partager la sauvegarde</button><button onclick="backup()">💾 Télécharger (.json)</button><button onclick="$('#fileJ').click()">♻️ Restaurer une sauvegarde</button></div>
  <p class="muted">${S.lastBackup?"Dernière sauvegarde : "+new Date(S.lastBackup).toLocaleString("fr-FR"):"Aucune sauvegarde."}</p></div>
  <div class="card"><h2>Nouvelle édition</h2><p class="muted">Garde la liste des exposants et le plan, remet à zéro statuts, pièces, paiements, emplacements, confirmations et présences. Faites une sauvegarde avant.</p><button onclick="newEdition()">Préparer une nouvelle édition</button></div>
  <div class="card"><h2>Tout effacer</h2><button class="btn-d" onclick="wipe()">Effacer toutes les données de cet appareil</button></div>`;
  document.querySelectorAll("[data-c]").forEach(i=>i.onchange=()=>{const k=i.dataset.c;S.cfg[k]=i.type==="number"?Number(i.value):i.value;save();render();toast("Enregistré")});
+}
+async function shareBackup(){
+ const name=`marche-pasly-sauvegarde-${today()}.json`,f=new File([JSON.stringify(S,null,1)],name,{type:"application/json"});
+ if(navigator.canShare&&navigator.canShare({files:[f]})){
+  try{await navigator.share({files:[f],title:"Sauvegarde Marché de Pasly",text:"Sauvegarde du "+new Date().toLocaleDateString("fr-FR")});S.lastBackup=new Date().toISOString();save();render();toast("Sauvegarde partagée")}
+  catch(e){if(e.name!=="AbortError")toast("Partage impossible : "+e.message)}
+ }else{toast("Partage non disponible : téléchargement du fichier");backup()}
 }
 function backup(){S.lastBackup=new Date().toISOString();save();download(`marche-pasly-sauvegarde-${today()}.json`,new Blob([JSON.stringify(S,null,1)],{type:"application/json"}));render()}
 $("#fileJ").onchange=async ev=>{const f=ev.target.files[0];ev.target.value="";if(!f)return;try{const d=JSON.parse(await f.text());if(!d.expo||!d.stands)throw new Error("format inconnu");if(!confirm(`Restaurer cette sauvegarde (${d.expo.length} exposants) ? Les données actuelles seront remplacées.`))return;S=d;S.cfg={...DEF_CFG,...S.cfg};S.pois=S.pois||[];save();render();toast("Sauvegarde restaurée")}catch(e){alert("Fichier invalide : "+e.message)}};
