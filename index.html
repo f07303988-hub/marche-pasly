@@ -222,12 +222,12 @@ function renderList(){
  const q=norm(listF.q);
  let L=S.expo.filter(e=>(!q||norm([e.nom,e.prenom,e.entreprise,e.produits,e.tel,e.email].join(" ")).includes(q))
   &&(!listF.st||e.statut===listF.st)
-  &&(!listF.f||(listF.f==="incomplet"&&e.statut==="Validé"&&!complet(e))||(listF.f==="nonplace"&&e.statut==="Validé"&&!standOf(e))||(listF.f==="impaye"&&actif(e)&&!e.paye)||(listF.f==="elec"&&e.elec===true)||(listF.f==="ft"&&isFT(e))||(listF.f==="conf"&&e.statut==="Validé"&&standOf(e)&&!e.confirmation)));
+  &&(!listF.f||(listF.f==="appelno"&&!(e.appel&&e.appel.marche===(S.cfg.date||"")))||(listF.f==="incomplet"&&e.statut==="Validé"&&!complet(e))||(listF.f==="nonplace"&&e.statut==="Validé"&&!standOf(e))||(listF.f==="impaye"&&actif(e)&&!e.paye)||(listF.f==="elec"&&e.elec===true)||(listF.f==="ft"&&isFT(e))||(listF.f==="conf"&&e.statut==="Validé"&&standOf(e)&&!e.confirmation)));
  L.sort((a,b)=>(a.nom||a.entreprise).localeCompare(b.nom||b.entreprise,"fr"));
  $("#main").innerHTML=`<div class="row" style="margin-bottom:8px"><input id="q" placeholder="🔍 Rechercher (nom, produit, tél…)" value="${esc(listF.q)}" style="flex:1;min-width:180px"><button class="btn-p" onclick="editExpo()">+ Ajouter</button></div>
  <div class="two" style="margin-bottom:8px"><select id="fs"><option value="">Tous statuts</option>${STATUTS.map(s=>`<option ${listF.st===s?"selected":""}>${s}</option>`).join("")}</select>
- <select id="ff"><option value="">Aucun filtre</option>${[["incomplet","Validés – dossier incomplet"],["nonplace","Validés – non placés"],["impaye","Non payés"],["conf","Confirmation à envoyer"],["elec","Électricité"],["ft","Food trucks"]].map(([v,t])=>`<option value="${v}" ${listF.f===v?"selected":""}>${t}</option>`).join("")}</select></div>
- <div class="row muted" style="margin-bottom:8px;justify-content:space-between"><span>${L.length} exposant(s)</span><span class="row"><button onclick="campaign('cand')">✉️ Mails candidatures</button><button onclick="copyMails()">📋 E-mails</button></span></div>
+ <select id="ff"><option value="">Aucun filtre</option>${[["appelno","Appel à candidatures non envoyé"],["incomplet","Validés – dossier incomplet"],["nonplace","Validés – non placés"],["impaye","Non payés"],["conf","Confirmation à envoyer"],["elec","Électricité"],["ft","Food trucks"]].map(([v,t])=>`<option value="${v}" ${listF.f===v?"selected":""}>${t}</option>`).join("")}</select></div>
+ <div class="row muted" style="margin-bottom:8px;justify-content:space-between"><span>${L.length} exposant(s)</span><span class="row"><button onclick="window._sel=null;campaign('cand')">✉️ Mails candidatures</button><button onclick="copyMails()">📋 E-mails</button></span></div>
  <div id="lst">${L.map(itemHTML).join("")||'<p class="muted">Aucun exposant.</p>'}</div>`;
  window._lastList=L;
  $("#q").oninput=e=>{listF.q=e.target.value;const p=e.target.selectionStart;renderList();const i=$("#q");i.focus();i.setSelectionRange(p,p)};
@@ -239,7 +239,7 @@ function itemHTML(e){
  const stc=e.statut==="Validé"?"ok":e.statut==="À traiter"?"w":e.statut==="Liste d'attente"?"b":"ko";
  return `<div class="item" onclick="editExpo('${e.id}')"><div class="row" style="justify-content:space-between"><span class="t">${esc(nomE(e)||"(sans nom)")}</span>${s?`<span class="bd b">n° ${s.num}</span>`:""}</div>
  <div class="s">${esc(e.type||"")}${e.produits?" · "+esc(e.produits):""}</div>
- <div><span class="bd ${stc}">${esc(e.statut)}</span>${e.statut==="Validé"?(complet(e)?'<span class="bd ok">dossier complet</span>':manquants(e).map(m=>`<span class="bd ko">${m}</span>`).join("")):""}${e.elec?'<span class="bd">⚡</span>':""}${e.confirmation?'<span class="bd ok">✉️ confirmé</span>':""}<span class="bd">${montant(e)} €${e.paye?" ✓":""}</span></div></div>`;
+ <div><span class="bd ${stc}">${esc(e.statut)}</span>${e.statut==="Validé"?(complet(e)?'<span class="bd ok">dossier complet</span>':manquants(e).map(m=>`<span class="bd ko">${m}</span>`).join("")):""}${e.elec?'<span class="bd">⚡</span>':""}${e.appel&&e.appel.marche===(S.cfg.date||"")?'<span class="bd b">📨 appel envoyé</span>':""}${e.confirmation?'<span class="bd ok">✉️ confirmé</span>':""}<span class="bd">${montant(e)} €${e.paye?" ✓":""}</span></div></div>`;
 }
 function copyMails(){
  const m=[...new Set((window._lastList||[]).map(e=>(e.email||"").trim()).filter(Boolean))];
@@ -275,7 +275,7 @@ function editExpo(id){
  ${s?`<button onclick="libererExpo('${e.id}')">Libérer l'emplacement</button>`:""}</div>
  <div class="card"><h3 style="margin-top:0">Suivi</h3>${ck("confirmation","Confirmation envoyée")}${ck("present","Présent le jour J")}
  <label class="f">Notes internes<textarea data-k="notes">${esc(e.notes)}</textarea></label>
- <div class="row">${!isNew&&e.email&&e.statut==="Validé"?`<button onclick="mailDec('${e.id}','ret')">✉️ Candidature retenue</button>`:""}${!isNew&&e.email&&(e.statut==="Refusé"||e.statut==="Liste d'attente")?`<button onclick="mailDec('${e.id}','ref')">✉️ Candidature non retenue</button>`:""}${!isNew&&e.email?`<button onclick="mailConf('${e.id}')">✉️ Mail de confirmation</button>`:""}${!isNew&&e.email&&manquants(e).length?`<button onclick="mailRel('${e.id}')">✉️ Mail de relance (pièces manquantes)</button>`:""}</div>${e.mailRetenu?`<p class="muted">Mail « retenue » envoyé le ${fdS(e.mailRetenu)}</p>`:""}${e.mailRefus?`<p class="muted">Mail « non retenue » envoyé le ${fdS(e.mailRefus)}</p>`:""}${e.relanceLe?`<p class="muted">Dernière relance : ${new Date(e.relanceLe+"T12:00").toLocaleDateString("fr-FR")}</p>`:""}</div>
+ <div class="row">${!isNew&&e.email&&e.statut==="Validé"?`<button onclick="mailDec('${e.id}','ret')">✉️ Candidature retenue</button>`:""}${!isNew&&e.email&&(e.statut==="Refusé"||e.statut==="Liste d'attente")?`<button onclick="mailDec('${e.id}','ref')">✉️ Candidature non retenue</button>`:""}${!isNew&&e.email?`<button onclick="mailConf('${e.id}')">✉️ Mail de confirmation</button>`:""}${!isNew&&e.email&&manquants(e).length?`<button onclick="mailRel('${e.id}')">✉️ Mail de relance (pièces manquantes)</button>`:""}</div>${e.appel?`<p class="muted">Appel à candidatures envoyé le ${fdS(e.appel.envoi)} (marché du ${fdS(e.appel.marche)||"date non définie"})</p>`:""}${e.mailRetenu?`<p class="muted">Mail « retenue » envoyé le ${fdS(e.mailRetenu)}</p>`:""}${e.mailRefus?`<p class="muted">Mail « non retenue » envoyé le ${fdS(e.mailRefus)}</p>`:""}${e.relanceLe?`<p class="muted">Dernière relance : ${new Date(e.relanceLe+"T12:00").toLocaleDateString("fr-FR")}</p>`:""}</div>
  <div class="row" style="justify-content:space-between"><div>${isNew?"":`<button class="btn-d" onclick="delExpo('${e.id}')">Supprimer</button>`}</div><button class="btn-p" id="saveE">Enregistrer</button></div>`);
  const si=d.querySelector('[data-k="siret"]'),sm=d.querySelector("#siretMsg");
  const chkS=()=>{const v=si.value.replace(/\s/g,"");sm.innerHTML=!v?"":siretOk(v)?'<span class="bd ok">SIRET valide</span>':'<span class="bd ko">SIRET invalide : 14 chiffres attendus, clé de contrôle incorrecte</span>'};si.oninput=chkS;chkS();
@@ -315,17 +315,27 @@ function campaign(k){
  <div class="seg" style="margin-bottom:10px"><button class="${k==="cand"?"on":""}" onclick="campaign('cand')">Appel</button><button class="${k==="ret"?"on":""}" onclick="campaign('ret')">Retenus</button><button class="${k==="ref"?"on":""}" onclick="campaign('ref')">Non retenus</button></div>`;
  let h="";
  if(k==="cand"){
-  const mails=[...new Set(S.expo.map(e=>(e.email||"").trim().toLowerCase()).filter(m=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m)))];
-  const n=Math.max(5,Number(c.lotCci)||30),lots=[];for(let i=0;i<mails.length;i+=n)lots.push(mails.slice(i,i+n));
+  const key=c.date||"",okM=m=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(m);
+  const sent=e=>e.appel&&e.appel.marche===key;
+  const q=norm(campQ);
+  const L=S.expo.filter(e=>(!campT||e.type===campT)&&(!q||norm(nomE(e)+e.produits+e.email).includes(q))).sort((a,b)=>sent(a)-sent(b)||nomE(a).localeCompare(nomE(b),"fr"));
+  if(!window._sel)window._sel=new Set(S.expo.filter(e=>!sent(e)&&okM((e.email||"").trim())).map(e=>e.id));
+  const sel=window._sel,selL=S.expo.filter(e=>sel.has(e.id));
+  const mails=[...new Set(selL.map(e=>(e.email||"").trim().toLowerCase()).filter(okM))];
+  const n=Math.max(5,Number(c.lotCci)||30),lots=[];for(let i=0;i<selL.length;i+=n)lots.push(selL.slice(i,i+n));
   const subj=fill(c.candSujet,newExpo()),body=fill(c.candCorps,newExpo());
-  window._camp={subj,body,lots};
-  h=`<p class="muted">Envoi à tout l'annuaire (${mails.length} adresses valides), en copie cachée, par lots de ${n} pour rester sous les limites de la messagerie. Pensez à joindre le bulletin d'inscription.</p>
-  ${c.dateLimite?"":`<div class="warn">Date limite de candidature non renseignée (Réglages) : le mail dira « dès que possible ».</div>`}
-  <div class="card"><b>${esc(subj)}</b><pre style="white-space:pre-wrap;font:inherit;font-size:13px;color:var(--m);max-height:180px;overflow:auto">${esc(body)}</pre>
-  <div class="row"><button onclick="cp(_camp.subj,'Objet copié')">📋 Objet</button><button onclick="cp(_camp.body,'Texte copié')">📋 Texte</button></div></div>
-  ${lots.map((l,i)=>`<div class="item" style="cursor:default"><div class="row" style="justify-content:space-between"><span class="t">Lot ${i+1} · ${l.length} adresses</span><span>${(c.lotsEnvoyes||{})[i]?`<span class="bd ok">ouvert le ${fdS(c.lotsEnvoyes[i])}</span>`:""}</span></div>
-  <div class="row" style="margin-top:6px"><button class="btn-p" onclick="sendLot(${i})">✉️ Ouvrir dans la messagerie</button><button onclick="cp(_camp.lots[${i}].join('; '),'Adresses copiées')">📋 Adresses (Cci)</button></div></div>`).join("")}
-  <p class="muted">Si la messagerie ne s'ouvre pas avec toutes les adresses, utilisez les boutons 📋 et collez dans le champ Cci.</p>`;
+  const nSent=S.expo.filter(sent).length,types=[...new Set(S.expo.map(e=>e.type).filter(Boolean))].sort();
+  window._camp={subj,body,lots:lots.map(l=>({ids:l.map(e=>e.id),mails:[...new Set(l.map(e=>(e.email||"").trim().toLowerCase()).filter(okM))]}))};
+  h=`${c.date?`<p class="muted">Marché du <b>${fdS(c.date)}</b> · appel déjà envoyé à <b>${nSent}</b> commerçant(s).</p>`:`<div class="warn">Renseignez la date du marché (Réglages) : le suivi des envois se fait par date de marché.</div>`}
+  ${c.dateLimite?"":`<div class="warn">Date limite de candidature non renseignée : le mail dira « dès que possible ».</div>`}
+  <details class="card"><summary><b>${esc(subj)}</b></summary><pre style="white-space:pre-wrap;font:inherit;font-size:13px;color:var(--m)">${esc(body)}</pre>
+  <div class="row"><button onclick="cp(_camp.subj,'Objet copié')">📋 Objet</button><button onclick="cp(_camp.body,'Texte copié')">📋 Texte</button></div></details>
+  <div class="two" style="margin-bottom:8px"><input id="cq" placeholder="🔍 Rechercher" value="${esc(campQ)}"><select id="ct"><option value="">Tous les types</option>${types.map(t=>`<option ${t===campT?"selected":""}>${esc(t)}</option>`).join("")}</select></div>
+  <div class="row" style="margin-bottom:8px"><button onclick="selCand('nonenv')">☑︎ Non envoyés</button><button onclick="selCand('vis')">☑︎ Liste affichée</button><button onclick="selCand('none')">☐ Aucun</button></div>
+  <div class="card"><b>${selL.length} sélectionné(s)</b> · ${mails.length} adresse(s) · ${lots.length} envoi(s) de ${n} max.
+  ${lots.map((l,i)=>`<div class="row" style="margin-top:6px"><button class="btn-p" onclick="sendLot(${i})">✉️ Envoi ${i+1} (${_camp.lots[i].mails.length} adr.)</button><button onclick="cp(_camp.lots[${i}].mails.join('; '),'Adresses copiées')">📋 Cci</button><button onclick="markLot(${i})">✓ Fait</button></div>`).join("")}</div>
+  ${L.map(e=>{const ok=okM((e.email||"").trim());return `<label class="item chk" style="cursor:pointer;${sent(e)?"opacity:.6":""}"><input type="checkbox" data-cid="${e.id}" ${sel.has(e.id)?"checked":""} ${ok?"":"disabled"}><span style="flex:1;min-width:0"><span class="t">${esc(nomE(e))}</span><br><span class="s">${esc(e.type||"")}${e.produits?" · "+esc(e.produits):""}</span><br>${sent(e)?`<span class="bd ok">📨 envoyé le ${fdS(e.appel.envoi)}</span>`:""}${ok?"":'<span class="bd w">pas d\'e-mail valide</span>'}${e.appel&&!sent(e)?`<span class="bd">dernier appel : marché du ${fdS(e.appel.marche)||"?"}</span>`:""}</span></label>`}).join("")}
+  <p class="muted">Ouvrir un envoi marque ses commerçants comme « envoyé » pour cette date de marché. Si vous passez par 📋 Cci, utilisez « ✓ Fait ».</p>`;
  }else{
   const [,, flag,lab]=MAILK[k];
   const L=S.expo.filter(e=>k==="ret"?e.statut==="Validé":(e.statut==="Refusé"||e.statut==="Liste d'attente")).sort((a,b)=>(!!a[flag])-(!!b[flag])||nomE(a).localeCompare(nomE(b),"fr"));
@@ -335,9 +345,25 @@ function campaign(k){
   ${L.map(e=>`<div class="item" style="cursor:default"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><div class="t">${esc(nomE(e))}</div><div class="s">${esc(e.email||"pas d'e-mail")}</div>${e[flag]?`<span class="bd ok">envoyé le ${fdS(e[flag])}</span>`:""}</div>${e.email?`<button class="${e[flag]?"":"btn-p"}" onclick="mailDec('${e.id}','${k}')">✉️</button>`:'<span class="bd w">—</span>'}</div></div>`).join("")||'<p class="muted">Aucun exposant concerné.</p>'}`;
  }
  const d=sheet(head+h);d.firstElementChild.id="camp";
+ if(k==="cand"){
+  d.querySelectorAll("[data-cid]").forEach(i=>i.onchange=()=>{i.checked?window._sel.add(i.dataset.cid):window._sel.delete(i.dataset.cid);rerunCamp()});
+  const cq=d.querySelector("#cq");cq.oninput=()=>{campQ=cq.value;const p=cq.selectionStart;rerunCamp();const n=$("#cq");n.focus();n.setSelectionRange(p,p)};
+  d.querySelector("#ct").onchange=ev=>{campT=ev.target.value;rerunCamp()};
+ }
 }
+let campQ="",campT="";
+function rerunCamp(){const sh=$("#camp"),t=sh?sh.scrollTop:0;campaign("cand");const n=$("#camp");if(n)n.scrollTop=t}
+function selCand(m){
+ const key=S.cfg.date||"",okM=x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x),q=norm(campQ);
+ const vis=S.expo.filter(e=>(!campT||e.type===campT)&&(!q||norm(nomE(e)+e.produits+e.email).includes(q))&&okM((e.email||"").trim()));
+ if(m==="none")window._sel=new Set();
+ else if(m==="vis")vis.forEach(e=>window._sel.add(e.id));
+ else window._sel=new Set(S.expo.filter(e=>!(e.appel&&e.appel.marche===key)&&okM((e.email||"").trim())).map(e=>e.id));
+ rerunCamp();
+}
+function markLot(i){const key=S.cfg.date||"";_camp.lots[i].ids.forEach(id=>{const e=S.expo.find(x=>x.id===id);if(e){e.appel={marche:key,envoi:today()};window._sel.delete(id)}});save();rerunCamp();toast("Marqué comme envoyé")}
 function cp(t,m){navigator.clipboard.writeText(t).then(()=>toast(m),()=>prompt("Copiez :",t))}
-function sendLot(i){const c=S.cfg;c.lotsEnvoyes=c.lotsEnvoyes||{};c.lotsEnvoyes[i]=today();save();openMail("mairie@pasly.fr",_camp.subj,_camp.body,_camp.lots[i].join(","));setTimeout(()=>campaign("cand"),300)}
+function sendLot(i){const l=_camp.lots[i];openMail("mairie@pasly.fr",_camp.subj,_camp.body,l.mails.join(","));setTimeout(()=>markLot(i),400)}
 function mailRel(id){
  const e=S.expo.find(x=>x.id===id);if(!e.email)return toast("Pas d'e-mail pour cet exposant");if(!manquants(e).length)return toast("Dossier complet");
  location.href=`mailto:${encodeURIComponent(e.email.trim())}?subject=${encodeURIComponent(fill(S.cfg.relSujet,e))}&body=${encodeURIComponent(fill(S.cfg.relCorps,e))}`;
